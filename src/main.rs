@@ -1,10 +1,11 @@
 use image::{io::Reader as ImageReader, ImageFormat};
 use lopdf::{Document, Object, Dictionary, Stream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::Cursor;
 use walkdir::WalkDir;
 use clap::Parser;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -18,15 +19,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     fs::create_dir_all(&args.output_dir)?;
 
+    let mut image_count = 0;
     for entry in WalkDir::new(&args.input_dir) {
         let entry = entry?;
         let path = entry.path();
         if path.is_file() {
             if let Some(ext) = path.extension() {
-                if ["jpg", "jpeg", "png"].contains(&ext.to_string_lossy().to_lowercase().as_str()) {
-                    let output_path = PathBuf::from(&args.output_dir)
-                        .join(path.file_stem().unwrap())
-                        .with_extension("pdf");
+                let ext_str = ext.to_string_lossy().to_lowercase();
+                if ["jpg", "jpeg", "png"].contains(&ext_str.as_str()) {
+                    // Utiliser un timestamp pour garantir un nom unique
+                    let timestamp = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)?
+                        .as_secs();
+
+                    let output_filename = format!(
+                        "{}_{}.pdf",
+                        path.file_stem().unwrap().to_string_lossy().replace(" ", "_"),
+                        timestamp
+                    );
+                    let output_path = PathBuf::from(&args.output_dir).join(output_filename);
+
+                    println!("Traitement de : {:?}", path);
 
                     // 1. Charger et compresser l'image
                     let img = ImageReader::open(path)?.decode()?;
@@ -70,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // 5. Créer le contenu de la page
                     let content = format!(
                         "q\n{} 0 0 {} 0 0 cm\n/Im0 Do\nQ",
-                        img.width() as f64 * 0.75,  // Échelle pour s'adapter à la page
+                        img.width() as f64 * 0.75,
                         img.height() as f64 * 0.75
                     );
                     doc.objects.insert(
@@ -93,8 +106,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Object::Array(vec![
                             Object::Integer(0),
                             Object::Integer(0),
-                            Object::Integer(595), // A4 width in points
-                            Object::Integer(842), // A4 height in points
+                            Object::Integer(595),
+                            Object::Integer(842),
                         ]),
                     );
                     page_dict.set("Contents", Object::Reference(content_id));
@@ -119,9 +132,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     doc.save(&output_path)?;
 
                     println!("PDF créé : {:?} (taille : {} octets)", output_path, compressed_img.len());
+                    image_count += 1;
                 }
             }
         }
     }
+
+    println!("{} images traitées.", image_count);
     Ok(())
 }
