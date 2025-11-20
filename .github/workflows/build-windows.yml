@@ -1,0 +1,18 @@
+name: Build Windows Executable
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+      - run: cargo build --release --target x86_64-pc-windows-msvc
+      - uses: actions/upload-artifact@v3
+        with:
+          name: windows-executable
+          path: target/x86_64-pc-windows-msvc/release/image-to-pdf-folder-convertor.exe
