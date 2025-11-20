@@ -12,7 +12,7 @@ jobs:
           toolchain: stable
           target: x86_64-pc-windows-msvc
       - run: cargo build --release --target x86_64-pc-windows-msvc
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: windows-executable
           path: target/x86_64-pc-windows-msvc/release/image-to-pdf-folder-convertor.exe
